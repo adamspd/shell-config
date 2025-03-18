@@ -153,9 +153,16 @@ function cleancsv {
 }
 
 function duf {
-    du -sk -- * 2>/dev/null | sort -n |
+    if [ -z "$1" ]; then
+        local targets="*"
+    else
+        # shellcheck disable=SC2124
+        local targets="$@"
+    fi
+
+    du -sk -- "$targets" 2>/dev/null | sort -n |
     perl -ne 'BEGIN{@units=qw(K M G T P)}
-        ($size,$file)=split(/\t/);
+        ($size,$file)=split(/\s+/,undef,2);
         for($i=0;$size>=1024&&$i<@units-1;$i++){$size/=1024}
         printf("%.1f%s\t%s\n",$size,$units[$i],$file)'
 }
