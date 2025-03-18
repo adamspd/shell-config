@@ -219,6 +219,40 @@ install_dependencies() {
     print_status "Dependencies installation complete" true
 }
 
+install_yq_jq() {
+    print_status "Installing yq and jq..." true
+
+    # Install jq version 1.7.1
+    if [[ "$OS" == "debian" ]]; then
+        ensure_sudo
+        JQ_URL="https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64"
+        sudo wget -q "$JQ_URL" -O /usr/bin/jq && sudo chmod +x /usr/bin/jq
+    elif [[ "$OS" == "macos" ]]; then
+        JQ_URL="https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-macos-amd64"
+        wget -q "$JQ_URL" -O /usr/local/bin/jq && chmod +x /usr/local/bin/jq
+    fi
+
+    # Install yq version 4.45.1
+    YQ_VERSION="4.45.1"
+    if [[ "$OS" == "debian" ]]; then
+        YQ_BINARY="yq_linux_amd64"
+        ensure_sudo
+        wget "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/${YQ_BINARY}.tar.gz" -O - | \
+            sudo tar xz && sudo mv ${YQ_BINARY} /usr/bin/yq && sudo chmod +x /usr/bin/yq
+    elif [[ "$OS" == "macos" ]]; then
+        YQ_BINARY="yq_darwin_amd64"
+        wget "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/${YQ_BINARY}.tar.gz" -O - | \
+            tar xz && mv ${YQ_BINARY} /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+    fi
+
+    # Verify installations
+    if command -v jq &> /dev/null && command -v yq &> /dev/null; then
+        print_status "jq $(jq --version) and yq version ${YQ_VERSION} installed successfully" true
+    else
+        print_error "Failed to install jq or yq"
+    fi
+}
+
 # Install Rust tools (fd-find and ripgrep)
 install_rust_tools() {
     print_status "Setting up Rust environment..." true
@@ -419,6 +453,7 @@ main() {
 
     # Run installation steps
     install_dependencies
+    install_yq_jq
     install_rust_tools
     setup_dotfiles
     change_shell
