@@ -174,6 +174,7 @@ install_dependencies() {
         # Install ZSH if selected
         if [[ "$SHELL_CHOICE" == "zsh" ]]; then
             print_status "Installing ZSH..." true
+            # shellcheck disable=SC2046
             sudo apt-get install -y $([ $FORCE -eq 1 ] && echo "--reinstall") zsh
         fi
 
@@ -243,6 +244,7 @@ install_rust_tools() {
     # Check and install fd-find
     if ! command -v fd &> /dev/null || [ $FORCE -eq 1 ]; then
         print_status "Installing fd-find..." true
+        # shellcheck disable=SC2046
         cargo install $([ $FORCE -eq 1 ] && echo "--force") fd-find
     else
         print_verbose "fd-find is already installed"
@@ -251,6 +253,7 @@ install_rust_tools() {
     # Check and install ripgrep
     if ! command -v rg &> /dev/null || [ $FORCE -eq 1 ]; then
         print_status "Installing ripgrep..." true
+        # shellcheck disable=SC2046
         cargo install $([ $FORCE -eq 1 ] && echo "--force") ripgrep
     else
         print_verbose "ripgrep is already installed"
