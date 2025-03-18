@@ -153,12 +153,11 @@ function cleancsv {
 }
 
 function duf {
-    # shellcheck disable=SC2124
-    local targets="${@:-.}"  # Use current dir if no args
-    du -sk $targets 2>/dev/null | sort -n |
-    perl -ne '@u=qw(K M G T P); ($s,$f)=split(/\s+/,undef,2);
-        for($i=0;$s>=1024&&$i<@u-1;$i++){$s/=1024}
-        printf("%.1f%s\t%s\n",$s,$u[$i],$f)'
+    fd -t f -t d . "${@:-.}" 2>/dev/null | xargs du -sk 2>/dev/null | sort -n |
+    awk '{size=$1; $1=""; sub(/^ */, "");
+          for(i=0; size>=1024; i++) size/=1024;
+          unit=substr("KMGTP",i+1,1);
+          printf("%.1f%s\t%s\n", size, unit, $0)}'
 }
 
 # ---------------------------------
