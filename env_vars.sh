@@ -9,6 +9,7 @@
 #  3.  Display & Terminal Settings
 #  4.  Shell-Specific Configuration
 #  5.  Program-Specific Settings
+#  6.  Local Overrides
 #
 #  ---------------------------------------------------------------------------
 
@@ -46,9 +47,9 @@ export HISTIGNORE="&:ls:[bf]g:exit:pwd:clear:history:cd:cd -:cd ..:cd -:..:...:.
 # Ensure every command gets a timestamp
 export HISTTIMEFORMAT="%F %T: "
 
-#   -----------------------------
+#   ------------------------------
 #   3. DISPLAY & TERMINAL SETTINGS
-#   -----------------------------
+#   ------------------------------
 
 # Block size for ls and du
 export BLOCKSIZE=1024k
@@ -58,6 +59,7 @@ export CLICOLOR=1
 export LSCOLORS=GxFxCxDxBxegedabagaced
 
 # GPG settings
+# shellcheck disable=SC2155
 export GPG_TTY=$(tty)
 
 # Less improvements
@@ -74,9 +76,9 @@ export LESS_TERMCAP_us=$'\E[1;32m' # Start underline
 export EDITOR="vim"
 export VISUAL="vim"
 
-#   -----------------------------
+#   -------------------------------
 #   4. SHELL-SPECIFIC CONFIGURATION
-#   -----------------------------
+#   -------------------------------
 
 # Detect which shell is being used and apply appropriate settings
 case $(ps -o comm= -p $$) in
@@ -89,12 +91,12 @@ case $(ps -o comm= -p $$) in
     setopt HIST_REDUCE_BLANKS         # Remove superfluous blanks
     setopt INC_APPEND_HISTORY         # Add commands immediately
     export SAVEHIST=100000            # Save this many commands
-    
+
     # ZSH Completion
     setopt AUTO_MENU                  # Show completion menu on tab press
     setopt COMPLETE_IN_WORD           # Complete from both ends
     setopt ALWAYS_TO_END              # Move cursor to end after completion
-    
+
     # ZSH Miscellaneous
     setopt AUTO_CD                    # cd by typing directory name
     setopt AUTO_PUSHD                 # Push old dir onto stack
@@ -102,22 +104,22 @@ case $(ps -o comm= -p $$) in
     setopt PUSHD_SILENT               # Don't print directory stack
     setopt EXTENDED_GLOB              # Extended globbing
     ;;
-    
+
   *bash)
     # BASH History Configuration
     export HISTCONTROL=ignoreboth:ignoredups:erasedups  # Ignore duplicates
     shopt -s histappend               # Append to history, don't overwrite
-    
+
     # Set the PROMPT_COMMAND to update history
     export PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND$'\n'}history -a; history -c; history -r"
-    
+
     # BASH Completion and Navigation
     shopt -s cdspell                  # Correct minor spelling errors in cd
     shopt -s dirspell                 # Correct spelling in directory completion
     shopt -s globstar                 # ** matches all files and directories/subdirectories
     shopt -s nocaseglob               # Case-insensitive globbing
     shopt -s autocd                   # cd by typing directory name
-    
+
     # BASH Miscellaneous
     shopt -s checkwinsize             # Check window size after commands
     shopt -s cmdhist                  # Save multi-line commands as single line
@@ -137,6 +139,7 @@ export NODE_OPTIONS="--max-old-space-size=4096"  # Increase Node.js memory
 
 # Java settings
 if command -v java > /dev/null 2>&1; then
+    # shellcheck disable=SC2155
     export JAVA_HOME=$(/usr/libexec/java_home 2>/dev/null || echo "/usr/lib/jvm/default-java")
 fi
 
@@ -148,3 +151,9 @@ export GOPATH="$HOME/go"
 if command -v rbenv > /dev/null 2>&1; then
     eval "$(rbenv init -)"
 fi
+
+#   -----------------------------
+#   6. LOCAL OVERRIDES
+#   -----------------------------
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8

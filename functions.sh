@@ -43,10 +43,11 @@ function up {
     for ((i=1; i<=levels; i++)); do
         result="${result}../"
     done
-    cd $result
+    cd $result || return
 }
 
 # Sort ls output into categories and display
+# shellcheck disable=SC2120
 function ls_sort {
     # If directory argument provided, cd into it first
     if [ -n "$1" ]; then
@@ -58,6 +59,7 @@ function ls_sort {
 
     clean_dirs() {
         while IFS= read -r line; do
+            # shellcheck disable=SC2001
             echo "$line" | sed 's|\(/\)$||'
         done
     }
@@ -95,13 +97,13 @@ function ls_sort {
 
     # cd back to original directory if we changed it
     if [ -n "$1" ]; then
-        builtin cd - > /dev/null
+        builtin cd - > /dev/null || return 1
     fi
 }
 
 # Show all aliases matching a pattern
-function showa { 
-    grep --color=always -i -a1 "$@" ~/.bash/aliases.sh | grep -v '^\s*$' | less -FSRXc 
+function showa {
+    grep --color=always -i -a1 "$@" ~/.bash/aliases.sh | grep -v '^\s*$' | less -FSRXc
 }
 
 # ---------------------------------
@@ -109,8 +111,8 @@ function showa {
 # ---------------------------------
 
 # Create directory and cd into it
-function mkcd { 
-    mkdir -pv "$1" && cd "$1" 
+function mkcd {
+    mkdir -pv "$1" && cd "$1" || return
 }
 
 # Extract most known archives with one command
@@ -136,18 +138,26 @@ function extract {
 }
 
 # Create a ZIP archive of a folder
-function zipf { 
-    zip -r "$1".zip "$1" 
+function zipf {
+    zip -r "$1".zip "$1"
 }
 
 # Count lines in file
 function countlines {
-    cat "$1" | wc -l
+    wc -l < "$1"
 }
 
 # Pretty print CSV
 function cleancsv {
     sed -e 's/,,/, ,/g' -e 's/,,/, ,/g' "$1" | column -s, -t
+}
+
+duf() {
+    du -sk -- * 2>/dev/null | sort -n |
+    perl -ne 'BEGIN{@units=qw(K M G T P)}
+        ($size,$file)=split(/\t/);
+        for($i=0;$size>=1024&&$i<@units-1;$i++){$size/=1024}
+        printf("%.1f%s\t%s\n",$size,$units[$i],$file)'
 }
 
 # ---------------------------------
@@ -166,12 +176,12 @@ function ff() {
 
 # Find files starting with pattern
 function ffs() {
-    fd "^$@"
+    fd "^$*"
 }
 
 # Find files ending with pattern
 function ffe() {
-    fd "$@$"
+    fd "$*$"
 }
 
 # ---------------------------------
@@ -179,23 +189,23 @@ function ffe() {
 # ---------------------------------
 
 # Find process IDs
-function findPid { 
-    lsof -t -c "$@" 
+function findPid {
+    lsof -t -c "$@"
 }
 
 # List processes owned by my user
-function my_ps { 
-    ps "$@" -u "$USER" -o pid,%cpu,%mem,start,time,bsdtime,command 
+function my_ps {
+    ps "$@" -u "$USER" -o pid,%cpu,%mem,start,time,bsdtime,command
 }
 
 # Kill processes matching a string
 function pskill {
-    ps aux | grep "$1" | grep -v grep | awk '{ print $2 }' | xargs -r kill -9
+    pgrep -f "$1" | xargs -r kill -9
 }
 
 # List processes matching a string
 function psrun {
-    ps aux | grep "$1" | grep -v grep
+    pgrep -af "$1"
 }
 
 # ---------------------------------
@@ -214,13 +224,13 @@ function ii {
 }
 
 # Get HTTP headers
-function httpHeaders { 
-    curl -I -L "$@" 
+function httpHeaders {
+    curl -I -L "$@"
 }
 
 # Debug HTTP timing
-function httpDebug { 
-    curl "$@" -o /dev/null -w "dns: %{time_namelookup} connect: %{time_connect} pretransfer: %{time_pretransfer} starttransfer: %{time_starttransfer} total: %{time_total}\n" 
+function httpDebug {
+    curl "$@" -o /dev/null -w "dns: %{time_namelookup} connect: %{time_connect} pretransfer: %{time_pretransfer} starttransfer: %{time_starttransfer} total: %{time_total}\n"
 }
 
 # Stop a process running on a specific port
@@ -230,7 +240,8 @@ function killport {
         echo "Usage: killport PORT_NUMBER"
         return 1
     fi
-    
+
+    # shellcheck disable=SC2155
     local pid=$(lsof -i :"$port" | awk 'NR>1 {print $2}' | uniq)
     if [[ -n "$pid" ]]; then
         echo "Killing process $pid running on port $port"
@@ -243,14 +254,19 @@ function killport {
 
 # Scan the local network
 function scannet {
+    # shellcheck disable=SC2155
     local network=$(ip -o -f inet addr show | awk '!/127.0.0.1/ {print $4}' | head -1)
     if [[ -z "$network" ]]; then
         echo "Could not determine local network"
         return 1
     fi
-    
+
     echo "Scanning network $network"
     sudo nmap -sP "$network"
+}
+
+function localip {
+    hostname -I | awk '{ print $1 }';
 }
 
 # ---------------------------------
@@ -314,7 +330,7 @@ function zshaddhistory {
 # This will create a hash that you can copy and send to someone else instead of the whole file and the person can
 # use the function unprotect as described below to get the original file
 # Thanks to https://github.com/romain-dartigues
-function protect { 
+function protect {
     gzip -9 | base64 -w0
     echo
 }
@@ -325,21 +341,23 @@ function protect {
 # hash_example (The base64 encoded string)
 # EOF
 # Thanks to https://github.com/romain-dartigues
-function unprotect { 
+function unprotect {
     base64 -d | gzip -d
 }
 
 # Git commit with current branch name as prefix
 function gcb {
+    # shellcheck disable=SC2155
     local branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
     if [[ -z "$branch" ]]; then
         echo "Not in a git repository"
         return 1
     fi
-    
+
     # Extract a clean branch name (remove ticket numbers, etc)
+    # shellcheck disable=SC2155
     local prefix=$(echo "$branch" | sed -E 's/^([A-Za-z]+[-_][0-9]+[-_])?([A-Za-z0-9_-]+).*/\2/')
-    
+
     if [[ -n "$1" ]]; then
         git commit -m "[$prefix] $1"
     else
@@ -354,7 +372,7 @@ function gcb {
 # JSON pretty print
 function json_pretty {
     if [[ -f "$1" ]]; then
-        cat "$1" | python3 -m json.tool
+        python3 -m json.tool < "$1"
     else
         echo "$1" | python3 -m json.tool
     fi
@@ -376,16 +394,16 @@ function rmb {
         echo -e "\e[31mDANGER: Refusing to run in $PWD - this could damage your system!\e[0m"
         return 1
     fi
-    
+
     # Show what would be deleted first
     echo -e "\e[33mFiles that would be deleted:\e[0m"
-    ls -la .??* ?* 2>/dev/null
-    
+    ls -la -- .??* ?* 2>/dev/null
+
     # Ask for confirmation
-    read -p $'\e[31mAre you SURE you want to delete these files? This cannot be undone! (y/N): \e[0m' confirm
+    read -rp $'\e[31mAre you SURE you want to delete these files? This cannot be undone! (y/N): \e[0m' confirm
     if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
         echo "Removing hidden files in $PWD"
-        rm -rf .??* ?* 2>/dev/null
+        rm -rf -- .??* ?* 2>/dev/null
         echo "Done!"
     else
         echo "Operation cancelled."
@@ -394,7 +412,7 @@ function rmb {
 
 function resource {
     local shell_to_reload
-    
+
     if [[ $# -eq 0 ]]; then
         # No argument provided, use current shell
         shell_to_reload=$(basename "$SHELL")
@@ -402,15 +420,17 @@ function resource {
         # Use provided argument
         shell_to_reload="$1"
     fi
-    
+
     case "$shell_to_reload" in
         bash)
             echo "Resourcing bash configuration..."
+            # shellcheck disable=SC1090
             source ~/.bashrc
             echo "Bash configuration reloaded!"
             ;;
         zsh)
             echo "Resourcing zsh configuration..."
+            # shellcheck disable=SC1090
             source ~/.zshrc
             echo "Zsh configuration reloaded!"
             ;;
@@ -432,6 +452,7 @@ function lslog {
 # Tail all log files in specified directory (default: /var/log)
 function taillog {
     local log_dir=${1:-"/var/log"}
+    # shellcheck disable=SC2155
     local logs=$(fd -e log . "$log_dir" | sort)
     if [[ -z "$logs" ]]; then
         echo "No log files found in $log_dir"

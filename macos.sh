@@ -83,17 +83,17 @@ cdf () {
 EOT
     )
     echo "cd to \"$currFolderPath\""
-    cd "$currFolderPath"
+    cd "$currFolderPath" || return
 }
 
 # Reveal file in Finder
-reveal() { 
+reveal() {
     [[ -e "$1" ]] && open -R "$1" || echo "File not found"
 }
 
 # Spotlight search
-spotlight () { mdfind "kMDItemDisplayName == '$@' wc"; }     # Search by filename
-spotlightContent () { mdfind -live "$@"; }                  # Search by content
+spotlight () { mdfind "kMDItemDisplayName == '$*' wc"; }     # Search by filename
+spotlightContent () { mdfind -live "$@"; }                   # Search by content
 
 #   ---------------------------------------
 #   5. SYSTEM OPERATIONS

@@ -86,7 +86,7 @@ alias make10mb='if [[ "$OSTYPE" == "darwin"* ]]; then mkfile 10m ./10MB.dat; els
 
 ### File Search - find your stuff fast ###
 alias search='fd'                               # Search by name
-alias ff='fd -t f'                              # Find files only 
+alias ff='fd -t f'                              # Find files only
 alias fdir='fd -t d'                            # Find dirs only (renamed from fd to avoid conflict)
 
 ### Text Search - grep what you need ###
@@ -123,7 +123,6 @@ alias topForever='if [[ "$OSTYPE" == "darwin"* ]]; then top -l 9999999 -s 10 -o 
 alias myip='curl ifconfig.me; echo -e "\n"'       # Public IP address
 alias ping='ping -c 4'                            # 4 pings then stop
 alias publicip='curl ifconfig.me'                 # Another public IP
-alias localip='hostname -I | awk '\''{ print $1 }'\''' # Local IP
 
 ### Port Monitoring - see what's open ###
 alias netCons='lsof -i'                           # All net connections
@@ -194,7 +193,7 @@ alias gs='git status'                              # Git status
 alias gd='git diff'                                # Git diff
 alias gl='git log --oneline --graph --decorate'   # Git log pretty
 alias ga='git add'                                 # Git add
-alias gc='git commit -m'                           # Git commit 
+alias gc='git commit -m'                           # Git commit
 alias gpl='git pull'                               # Git pull
 alias gps='git push'                               # Git push
 alias gco='git checkout'                           # Git checkout

@@ -70,7 +70,6 @@ elif command -v gio &> /dev/null; then
 fi
 
 # File listing with extra information
-alias duf='du -sk * | sort -n | perl -ne '\''($s,$f)=split(m{\t});for (qw(K M G)) {if($s<1024) {printf("%.1f",$s);print "$_\t$f"; last};$s=$s/1024}'\'  # Disk usage in human readable format
 alias dirsize='du -sch .[!.]* * | sort -h'          # Directory sizes including hidden
 
 # Permissions
@@ -127,7 +126,6 @@ alias ufw_list='sudo ufw status numbered'           # List firewall rules with n
 
 # Network tools
 alias public_ip='curl -s ifconfig.me'               # Show public IP
-alias local_ip='hostname -I | awk "{print \$1}"'    # Show local IP
 alias listen='sudo netstat -tulanp | grep LISTEN'   # Show listening ports
 alias connections='sudo netstat -tulanp'            # Show all connections
 alias route_table='route -n'                        # Show routing table
