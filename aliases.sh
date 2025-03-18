@@ -70,7 +70,6 @@ alias du='du -ch'                                 # Readable dir usage with tota
 alias usage='du -ch | grep total'                 # Total dir usage
 alias totalsize='df -h /'                         # Total fs usage
 alias dud='du -d 1 -h'                            # Directory size 1 level deep
-alias duf='du -sh *'                              # Show size of all files/dirs
 
 ### File Permissions - control your shit ###
 alias chmod='chmod -cv'                           # Verbose permission changes
