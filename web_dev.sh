@@ -16,13 +16,13 @@ alias openports="sudo netstat -tulpn | grep LISTEN"    # Show all open ports
 alias servehere="python3 -m http.server"               # Serve current directory via HTTP
 
 # Get HTTP headers
-httpHeaders() { 
-    curl -I -L "$@" 
+httpHeaders() {
+    curl -I -L "$@"
 }
 
 # Debug HTTP timing
-httpDebug() { 
-    curl "$@" -o /dev/null -w "dns: %{time_namelookup} connect: %{time_connect} pretransfer: %{time_pretransfer} starttransfer: %{time_starttransfer} total: %{time_total}\n" 
+httpDebug() {
+    curl "$@" -o /dev/null -w "dns: %{time_namelookup} connect: %{time_connect} pretransfer: %{time_pretransfer} starttransfer: %{time_starttransfer} total: %{time_total}\n"
 }
 
 # Stop a process running on a specific port
@@ -32,7 +32,8 @@ killport() {
         echo "Usage: killport PORT_NUMBER"
         return 1
     fi
-    
+
+    # shellcheck disable=SC2155
     local pid=$(lsof -i :"$port" | awk 'NR>1 {print $2}' | uniq)
     if [[ -n "$pid" ]]; then
         echo "Killing process $pid running on port $port"
@@ -50,12 +51,12 @@ runLighthouse() {
         echo "Usage: runLighthouse URL"
         return 1
     fi
-    
+
     if ! command -v lighthouse &> /dev/null; then
         echo "Lighthouse not found. Install with: npm install -g lighthouse"
         return 1
     fi
-    
+
     lighthouse --chrome-flags="--headless" "$url"
 }
 

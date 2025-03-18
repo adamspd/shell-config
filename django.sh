@@ -20,7 +20,7 @@ function pmr {
 # Delete all non-initial migrations files with confirmation
 function cleanupMg {
     find . -path "*/migrations/*" -not -name "__init__.py" -print
-    read -p "Delete these files? [y/N] " confirm && [[ $confirm == [yY] ]] && find . -path "*/migrations/*" -not -name "__init__.py" -delete
+    read -rp "Delete these files? [y/N] " confirm && [[ $confirm == [yY] ]] && find . -path "*/migrations/*" -not -name "__init__.py" -delete
 }
 
 # Make messages for a specified language
@@ -51,7 +51,7 @@ alias pm_compile='python3 manage.py compilemessages'
 
 # Reset database
 function pmdbreset {
-    read -p "This will DELETE your database. Are you sure? [y/N] " confirm
+    read -rp "This will DELETE your database. Are you sure? [y/N] " confirm
     if [[ $confirm == [yY] ]]; then
         find . -path "*/migrations/*.py" -not -name "__init__.py" -delete
         find . -path "*/migrations/*.pyc" -delete
@@ -71,20 +71,20 @@ function pmapp {
         echo "Usage: pmapp <app_name>"
         return 1
     fi
-    
+
     python3 manage.py startapp "$app_name"
-    
+
     # Create directories for better organization
     mkdir -p "$app_name/templates/$app_name"
     mkdir -p "$app_name/static/$app_name/css"
     mkdir -p "$app_name/static/$app_name/js"
     mkdir -p "$app_name/tests"
-    
+
     # Create initial test files
     touch "$app_name/tests/__init__.py"
     touch "$app_name/tests/test_models.py"
     touch "$app_name/tests/test_views.py"
-    
+
     echo "Created Django app '$app_name' with enhanced structure"
 }
 
@@ -92,12 +92,12 @@ function pmapp {
 function pmfixture {
     local app_name=$1
     local model_name=$2
-    
+
     if [[ -z "$app_name" || -z "$model_name" ]]; then
         echo "Usage: pmfixture <app_name> <model_name>"
         return 1
     fi
-    
+
     python3 manage.py dumpdata "$app_name.$model_name" --indent 2 > "$app_name/fixtures/$model_name.json"
     echo "Created fixture for $app_name.$model_name"
 }

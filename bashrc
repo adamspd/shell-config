@@ -9,6 +9,7 @@ BASH_CONFIG_DIR="$HOME/.bash"
 for file in "$BASH_CONFIG_DIR"/env_vars.sh \
             "$BASH_CONFIG_DIR"/functions.sh \
             "$BASH_CONFIG_DIR"/aliases.sh; do
+    # shellcheck disable=SC1090
     [[ -r "$file" ]] && source "$file"
 done
 
@@ -21,6 +22,7 @@ fi
 
 # Load modules (only if they exist)
 for module in django web_dev; do
+    # shellcheck disable=SC1090
     [[ -r "$BASH_CONFIG_DIR/modules/${module}.sh" ]] && source "$BASH_CONFIG_DIR/modules/${module}.sh"
 done
 
@@ -34,12 +36,12 @@ if [[ -n "$PS1" ]]; then
     GREEN="\[\033[1;32m\]"
     BLUE="\[\033[1;34m\]"
     YELLOW="\[\033[1;33m\]"
-    
+
     # Git branch in prompt
     parse_git_branch() {
         git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ (\1)/'
     }
-    
+
     # Set the prompt: user@host:dir [git branch] $
     PS1="${GREEN}\u@\h${RESET}:${BLUE}\w${YELLOW}\$(parse_git_branch)${RESET}\$ "
 fi
