@@ -152,7 +152,7 @@ function cleancsv {
     sed -e 's/,,/, ,/g' -e 's/,,/, ,/g' "$1" | column -s, -t
 }
 
-duf() {
+function duf {
     du -sk -- * 2>/dev/null | sort -n |
     perl -ne 'BEGIN{@units=qw(K M G T P)}
         ($size,$file)=split(/\t/);
@@ -170,17 +170,17 @@ function mans {
 }
 
 # Find files matching pattern
-function ff() {
+function ff {
     fd "$@"
 }
 
 # Find files starting with pattern
-function ffs() {
+function ffs {
     fd "^$*"
 }
 
 # Find files ending with pattern
-function ffe() {
+function ffe {
     fd "$*$"
 }
 
