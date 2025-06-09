@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Adams' Environment Setup Script
-# Version 1.1.0
+# Version 1.1.1
 
 set -eo pipefail  # Better error handling
 
