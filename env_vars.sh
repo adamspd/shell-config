@@ -42,7 +42,7 @@ export HISTFILESIZE=100000         # File size
 export HISTSIZE=200000             # Command history size
 
 # Dont' add these commands to history
-export HISTIGNORE="&:ls:[bf]g:exit:pwd:clear:history:cd:cd -:cd ..:cd -:..:...:.3:.4:.5:.6:cat:ll"
+export HISTIGNORE="&:[bf]g:exit:pwd:clear:history:cd:cd -:cd ..:cd -:..:...:.3:.4:.5:.6:cat:ll"
 
 # Ensure every command gets a timestamp
 export HISTTIMEFORMAT="%F %T: "
