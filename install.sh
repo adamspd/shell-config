@@ -174,6 +174,34 @@ if [ "$(id -u)" -eq 0 ]; then
     exit 1
 fi
 
+# Check if component is already installed
+is_installed() {
+    local component="$1"
+    case "$component" in
+        "rust")
+            command -v rustup &> /dev/null && command -v cargo &> /dev/null
+            ;;
+        "fd")
+            command -v fd &> /dev/null
+            ;;
+        "ripgrep")
+            command -v rg &> /dev/null
+            ;;
+        "jq")
+            command -v jq &> /dev/null && [[ "$(jq --version 2>/dev/null)" == "jq-1.7.1" ]]
+            ;;
+        "yq")
+            command -v yq &> /dev/null && [[ "$(yq --version 2>/dev/null)" == *"4.45.1"* ]]
+            ;;
+        "homebrew")
+            command -v brew &> /dev/null
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 # Detect OS
 detect_os() {
     if [ -f /etc/os-release ]; then
@@ -284,6 +312,7 @@ install_dependencies() {
                 print_status "Package lists updated successfully" 1
             else
                 print_error "Failed to update package lists"
+                return 1
             fi
         fi
 
@@ -293,46 +322,50 @@ install_dependencies() {
         print_info "Checking existing packages" 2
         PACKAGES="vim git curl wget nethogs lsof net-tools build-essential python3 python3-pip dnsutils"
 
+        # Add ZSH if selected
+        if [[ "$SHELL_CHOICE" == "zsh" ]]; then
+            PACKAGES="$PACKAGES zsh"
+        fi
+
         if [ $FORCE -eq 1 ]; then
             # Force reinstall by explicitly adding --reinstall flag
             print_status "Force reinstalling packages..." 1
             if [ "$VERBOSE" -ge 3 ]; then
-                sudo apt-get install -y --reinstall "$PACKAGES"
+                sudo apt-get install -y --reinstall $PACKAGES
             else
-                if sudo apt-get install -y --reinstall "$PACKAGES" >/dev/null; then
+                if sudo apt-get install -y --reinstall $PACKAGES >/dev/null; then
                     print_status "Packages reinstalled successfully" 1
                 else
                     print_error "Failed to reinstall packages"
+                    return 1
                 fi
             fi
         else
             print_info "Installing only missing packages" 2
             if [ "$VERBOSE" -ge 3 ]; then
-                sudo apt-get install -y "$PACKAGES"
+                sudo apt-get install -y $PACKAGES
             else
-                if sudo apt-get install -y "$PACKAGES" >/dev/null; then
+                if sudo apt-get install -y $PACKAGES >/dev/null; then
                     print_status "Packages installed successfully" 1
                 else
                     print_error "Failed to install packages"
+                    return 1
                 fi
-            fi
-        fi
-
-        # Install ZSH if selected
-        if [[ "$SHELL_CHOICE" == "zsh" ]]; then
-            print_status "Installing ZSH..." 1
-            if [ $FORCE -eq 1 ]; then
-                sudo apt-get install -y --reinstall zsh
-            else
-                sudo apt-get install -y zsh
             fi
         fi
 
     elif [[ "$OS" == "macos" ]]; then
         # Check if Homebrew is installed
-        if ! command -v brew &> /dev/null; then
-            print_status "Installing Homebrew..." 1 1
-            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        if ! is_installed "homebrew" || [ $FORCE -eq 1 ]; then
+            if [ $FORCE -eq 1 ] && is_installed "homebrew"; then
+                print_status "Force mode: Homebrew already installed, continuing..." 1
+            else
+                print_status "Installing Homebrew..." 1 1
+                if ! /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
+                    print_error "Failed to install Homebrew"
+                    return 1
+                fi
+            fi
 
             # Add Homebrew to PATH
             if [[ -f /opt/homebrew/bin/brew ]]; then
@@ -347,21 +380,22 @@ install_dependencies() {
         print_status "Installing essential packages with Homebrew..." 1
         PACKAGES="vim git curl wget python3 lsof"
 
-        if [ $FORCE -eq 1 ]; then
-            print_status "Force reinstalling packages..." 1
-            brew reinstall "$PACKAGES"
-        else
-            print_info "Installing only missing packages" 2
-            brew install "$PACKAGES"
+        # Add ZSH if selected and not present
+        if [[ "$SHELL_CHOICE" == "zsh" && ! -f /bin/zsh ]]; then
+            PACKAGES="$PACKAGES zsh"
         fi
 
-        # Install ZSH if selected
-        if [[ "$SHELL_CHOICE" == "zsh" ]]; then
-            print_status "Installing ZSH..." 1
-            if [ $FORCE -eq 1 ]; then
-                brew reinstall zsh
-            else
-                brew install zsh
+        if [ $FORCE -eq 1 ]; then
+            print_status "Force reinstalling packages..." 1
+            if ! brew reinstall $PACKAGES; then
+                print_error "Failed to reinstall packages with Homebrew"
+                return 1
+            fi
+        else
+            print_info "Installing only missing packages" 2
+            if ! brew install $PACKAGES; then
+                print_error "Failed to install packages with Homebrew"
+                return 1
             fi
         fi
 
@@ -377,51 +411,82 @@ install_yq_jq() {
     print_status "Installing yq and jq..." 1 1
 
     # Install jq version 1.7.1
-    if [[ "$OS" == "debian" ]]; then
-        ensure_sudo
-        JQ_URL="https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64"
-        if [ "$VERBOSE" -ge 3 ]; then
-            sudo wget "$JQ_URL" -O /usr/bin/jq && sudo chmod +x /usr/bin/jq
-        else
-            sudo wget -q "$JQ_URL" -O /usr/bin/jq && sudo chmod +x /usr/bin/jq
+    if ! is_installed "jq" || [ $FORCE -eq 1 ]; then
+        print_status "Installing jq 1.7.1..." 1
+        if [[ "$OS" == "debian" ]]; then
+            ensure_sudo
+            JQ_URL="https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64"
+            if [ "$VERBOSE" -ge 3 ]; then
+                if ! (curl -fsSL "$JQ_URL" -o /tmp/jq && sudo mv /tmp/jq /usr/bin/jq && sudo chmod +x /usr/bin/jq); then
+                    print_error "Failed to install jq"
+                    return 1
+                fi
+            else
+                if ! (curl -fsSL "$JQ_URL" -o /tmp/jq >/dev/null 2>&1 && sudo mv /tmp/jq /usr/bin/jq && sudo chmod +x /usr/bin/jq); then
+                    print_error "Failed to install jq"
+                    return 1
+                fi
+            fi
+        elif [[ "$OS" == "macos" ]]; then
+            JQ_URL="https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-macos-amd64"
+            if [ "$VERBOSE" -ge 3 ]; then
+                if ! (curl -fsSL "$JQ_URL" -o /tmp/jq && mv /tmp/jq /usr/local/bin/jq && chmod +x /usr/local/bin/jq); then
+                    print_error "Failed to install jq"
+                    return 1
+                fi
+            else
+                if ! (curl -fsSL "$JQ_URL" -o /tmp/jq >/dev/null 2>&1 && mv /tmp/jq /usr/local/bin/jq && chmod +x /usr/local/bin/jq); then
+                    print_error "Failed to install jq"
+                    return 1
+                fi
+            fi
         fi
-    elif [[ "$OS" == "macos" ]]; then
-        JQ_URL="https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-macos-amd64"
-        if [ "$VERBOSE" -ge 3 ]; then
-            wget "$JQ_URL" -O /usr/local/bin/jq && chmod +x /usr/local/bin/jq
-        else
-            wget -q "$JQ_URL" -O /usr/local/bin/jq && chmod +x /usr/local/bin/jq
-        fi
+    else
+        print_info "jq 1.7.1 is already installed" 2
     fi
 
     # Install yq version 4.45.1
-    YQ_VERSION="4.45.1"
-    if [[ "$OS" == "debian" ]]; then
-        YQ_BINARY="yq_linux_amd64"
-        ensure_sudo
-        if [ "$VERBOSE" -ge 3 ]; then
-            wget "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/${YQ_BINARY}.tar.gz" -O - | \
-                sudo tar xz && sudo mv ${YQ_BINARY} /usr/bin/yq && sudo chmod +x /usr/bin/yq
-        else
-            wget -q "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/${YQ_BINARY}.tar.gz" -O - 2>/dev/null | \
-                sudo tar xz && sudo mv ${YQ_BINARY} /usr/bin/yq && sudo chmod +x /usr/bin/yq
+    if ! is_installed "yq" || [ $FORCE -eq 1 ]; then
+        print_status "Installing yq 4.45.1..." 1
+        YQ_VERSION="4.45.1"
+        if [[ "$OS" == "debian" ]]; then
+            YQ_BINARY="yq_linux_amd64"
+            ensure_sudo
+            if [ "$VERBOSE" -ge 3 ]; then
+                if ! (curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/${YQ_BINARY}.tar.gz" | tar xz -C /tmp && sudo mv "/tmp/${YQ_BINARY}" /usr/bin/yq && sudo chmod +x /usr/bin/yq); then
+                    print_error "Failed to install yq"
+                    return 1
+                fi
+            else
+                if ! (curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/${YQ_BINARY}.tar.gz" 2>/dev/null | tar xz -C /tmp && sudo mv "/tmp/${YQ_BINARY}" /usr/bin/yq && sudo chmod +x /usr/bin/yq); then
+                    print_error "Failed to install yq"
+                    return 1
+                fi
+            fi
+        elif [[ "$OS" == "macos" ]]; then
+            YQ_BINARY="yq_darwin_amd64"
+            if [ "$VERBOSE" -ge 3 ]; then
+                if ! (curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/${YQ_BINARY}.tar.gz" | tar xz -C /tmp && mv "/tmp/${YQ_BINARY}" /usr/local/bin/yq && chmod +x /usr/local/bin/yq); then
+                    print_error "Failed to install yq"
+                    return 1
+                fi
+            else
+                if ! (curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/${YQ_BINARY}.tar.gz" 2>/dev/null | tar xz -C /tmp && mv "/tmp/${YQ_BINARY}" /usr/local/bin/yq && chmod +x /usr/local/bin/yq); then
+                    print_error "Failed to install yq"
+                    return 1
+                fi
+            fi
         fi
-    elif [[ "$OS" == "macos" ]]; then
-        YQ_BINARY="yq_darwin_amd64"
-        if [ "$VERBOSE" -ge 3 ]; then
-            wget "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/${YQ_BINARY}.tar.gz" -O - | \
-                tar xz && mv ${YQ_BINARY} /usr/local/bin/yq && chmod +x /usr/local/bin/yq
-        else
-            wget -q "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/${YQ_BINARY}.tar.gz" -O - 2>/dev/null | \
-                tar xz && mv ${YQ_BINARY} /usr/local/bin/yq && chmod +x /usr/local/bin/yq
-        fi
+    else
+        print_info "yq 4.45.1 is already installed" 2
     fi
 
     # Verify installations
     if command -v jq &> /dev/null && command -v yq &> /dev/null; then
-        print_status "jq $(jq --version) and yq version ${YQ_VERSION} installed successfully" 1 1
+        print_status "jq $(jq --version) and yq $(yq --version) verified successfully" 1 1
     else
-        print_error "Failed to install jq or yq"
+        print_error "Failed to verify jq or yq installation"
+        return 1
     fi
 }
 
@@ -430,41 +495,86 @@ install_rust_tools() {
     print_status "Setting up Rust environment..." 1 1
 
     # Check if Rust is already installed
-    if ! command -v rustup &> /dev/null || [ $FORCE -eq 1 ]; then
-        if [ $FORCE -eq 1 ] && [ -d "$HOME/.cargo" ]; then
+    if ! is_installed "rust" || [ $FORCE -eq 1 ]; then
+        if [ $FORCE -eq 1 ] && is_installed "rust"; then
             print_status "Force removing existing Rust installation..." 1
-            rm -rf "$HOME/.cargo"
-            rm -rf "$HOME/.rustup"
+            rm -rf "$HOME/.cargo" "$HOME/.rustup"
         fi
 
         print_status "Installing Rust..." 1
         if [ "$VERBOSE" -ge 3 ]; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            if ! curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; then
+                print_error "Failed to install Rust"
+                return 1
+            fi
         else
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y >/dev/null 2>&1
+            if ! curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y >/dev/null 2>&1; then
+                print_error "Failed to install Rust"
+                return 1
+            fi
         fi
+    else
+        print_info "Rust is already installed" 2
+    fi
 
-        # Source Rust environment
+    # Source Rust environment (preserve existing PATH)
+    if [[ -f "$HOME/.cargo/env" ]]; then
+        # shellcheck source=/dev/null
         . "$HOME/.cargo/env"
     else
-        print_info "Rust is already installed, sourcing environment" 2
-        . "$HOME/.cargo/env" 2>/dev/null
+        export PATH="$HOME/.cargo/bin:$PATH"
+    fi
+
+    # Verify Rust installation
+    if ! command -v cargo &> /dev/null; then
+        print_error "Rust installation failed - cargo not found"
+        return 1
     fi
 
     # Check and install fd-find
-    if ! command -v fd &> /dev/null || [ $FORCE -eq 1 ]; then
+    if ! is_installed "fd" || [ $FORCE -eq 1 ]; then
         print_status "Installing fd-find..." 1
-        # shellcheck disable=SC2046
-        cargo install $([ $FORCE -eq 1 ] && echo "--force") fd-find
+        if [ $FORCE -eq 1 ]; then
+            if ! cargo install --force fd-find; then
+                print_error "Failed to install fd-find"
+                return 1
+            fi
+        else
+            if ! cargo install fd-find; then
+                print_error "Failed to install fd-find"
+                return 1
+            fi
+        fi
+        
+        # Verify installation
+        if ! command -v fd &> /dev/null; then
+            print_error "fd-find installation verification failed"
+            return 1
+        fi
     else
         print_info "fd-find is already installed" 2
     fi
 
     # Check and install ripgrep
-    if ! command -v rg &> /dev/null || [ $FORCE -eq 1 ]; then
+    if ! is_installed "ripgrep" || [ $FORCE -eq 1 ]; then
         print_status "Installing ripgrep..." 1
-        # shellcheck disable=SC2046
-        cargo install $([ $FORCE -eq 1 ] && echo "--force") ripgrep
+        if [ $FORCE -eq 1 ]; then
+            if ! cargo install --force ripgrep; then
+                print_error "Failed to install ripgrep"
+                return 1
+            fi
+        else
+            if ! cargo install ripgrep; then
+                print_error "Failed to install ripgrep"
+                return 1
+            fi
+        fi
+        
+        # Verify installation
+        if ! command -v rg &> /dev/null; then
+            print_error "ripgrep installation verification failed"
+            return 1
+        fi
     else
         print_info "ripgrep is already installed" 2
     fi
@@ -475,27 +585,38 @@ install_rust_tools() {
 # Clone dotfiles repository
 setup_dotfiles() {
     local dotfiles_dir="$HOME/.shell-config"
-    local bash_config_dir="$HOME/.bash"
+    local config_dir="$HOME/.${SHELL_CHOICE}"
 
     print_status "Setting up the shell config..." 1 1
 
     # Clone repository if it doesn't exist
     if [[ ! -d "$dotfiles_dir" ]]; then
         print_status "Cloning shell-config repository..." 1
-        # Replace with your actual repository URL
         if [ "$VERBOSE" -ge 3 ]; then
-            git clone https://github.com/adamspd/shell-config.git "$dotfiles_dir"
+            if ! git clone https://github.com/adamspd/shell-config.git "$dotfiles_dir"; then
+                print_error "Failed to clone repository"
+                return 1
+            fi
         else
-            git clone -q https://github.com/adamspd/shell-config.git "$dotfiles_dir" 2>/dev/null
+            if ! git clone -q https://github.com/adamspd/shell-config.git "$dotfiles_dir" 2>/dev/null; then
+                print_error "Failed to clone repository"
+                return 1
+            fi
         fi
     else
         print_status "Shell-config repository already exists" 1
         if [ $FORCE -eq 1 ]; then
             print_status "Force resetting dotfiles repository..." 1
             if [ "$VERBOSE" -ge 3 ]; then
-                (cd "$dotfiles_dir" && git fetch && git reset --hard origin/main && git clean -fd)
+                if ! (cd "$dotfiles_dir" && git fetch && git reset --hard origin/main && git clean -fd); then
+                    print_error "Failed to reset repository"
+                    return 1
+                fi
             else
-                (cd "$dotfiles_dir" && git fetch -q && git reset -q --hard origin/main && git clean -q -fd) 2>/dev/null
+                if ! (cd "$dotfiles_dir" && git fetch -q && git reset -q --hard origin/main && git clean -q -fd) 2>/dev/null; then
+                    print_error "Failed to reset repository"
+                    return 1
+                fi
             fi
             print_status "Force reset complete" 1
         else
@@ -509,18 +630,17 @@ setup_dotfiles() {
     fi
 
     # Create config directory structure
-    mkdir -p "$bash_config_dir/platform" "$bash_config_dir/modules"
+    mkdir -p "$config_dir/platform" "$config_dir/modules"
 
     # Copy or symlink files
     print_status "Setting up configuration files..." 1
 
     # Backup existing files
-    # shellcheck disable=SC2155
     local timestamp=$(date +"%Y%m%d_%H%M%S")
 
     # Backup and setup shell config
     if [[ "$SHELL_CHOICE" == "bash" ]]; then
-        if [ $FORCE -eq 1 ] || [[ -f "$HOME/.bashrc" && ! -L "$HOME/.bashrc" ]]; then
+        if [ $FORCE -eq 1 ] || [[ -f "$HOME/.bashrc" ]]; then
             if [[ -f "$HOME/.bashrc" ]]; then
                 print_status "Backing up existing .bashrc to .bashrc.bak.$timestamp" 1
                 mv "$HOME/.bashrc" "$HOME/.bashrc.bak.$timestamp"
@@ -529,85 +649,82 @@ setup_dotfiles() {
             print_status "Installed new .bashrc" 1
         fi
     else # zsh
-        if [ $FORCE -eq 1 ] || [[ -f "$HOME/.zshrc" && ! -L "$HOME/.zshrc" ]]; then
+        if [ $FORCE -eq 1 ] || [[ -f "$HOME/.zshrc" ]]; then
             if [[ -f "$HOME/.zshrc" ]]; then
                 print_status "Backing up existing .zshrc to .zshrc.bak.$timestamp" 1
                 mv "$HOME/.zshrc" "$HOME/.zshrc.bak.$timestamp"
             fi
             cp "$dotfiles_dir/zshrc" "$HOME/.zshrc"
+            
+            # Update zshrc to use correct config directory
+            sed -i.bak "s|BASH_CONFIG_DIR=\"\$HOME/\.bash\"|BASH_CONFIG_DIR=\"\$HOME/.${SHELL_CHOICE}\"|g" "$HOME/.zshrc"
+            rm "$HOME/.zshrc.bak"
+            
             print_status "Installed new .zshrc" 1
         fi
     fi
 
     # Copy core files (with force option)
     print_info "Copying core configuration files" 2
-    cp "$dotfiles_dir/aliases.sh" "$bash_config_dir/"
-    cp "$dotfiles_dir/functions.sh" "$bash_config_dir/"
-    cp "$dotfiles_dir/env_vars.sh" "$bash_config_dir/"
+    cp "$dotfiles_dir/aliases.sh" "$config_dir/"
+    cp "$dotfiles_dir/functions.sh" "$config_dir/"
+    cp "$dotfiles_dir/env_vars.sh" "$config_dir/"
 
     # Copy platform-specific files
     print_info "Copying platform-specific configuration files" 2
-    cp "$dotfiles_dir/linux.sh" "$bash_config_dir/platform/"
-    cp "$dotfiles_dir/macos.sh" "$bash_config_dir/platform/"
+    cp "$dotfiles_dir/linux.sh" "$config_dir/platform/"
+    cp "$dotfiles_dir/macos.sh" "$config_dir/platform/"
 
     # Copy module files
     print_info "Copying module configuration files" 2
-    cp "$dotfiles_dir/django.sh" "$bash_config_dir/modules/"
-    cp "$dotfiles_dir/web_dev.sh" "$bash_config_dir/modules/"
+    cp "$dotfiles_dir/django.sh" "$config_dir/modules/"
+    cp "$dotfiles_dir/web_dev.sh" "$config_dir/modules/"
 
     # Set permissions
     print_info "Setting file permissions" 2
-    chmod +x "$bash_config_dir"/*.sh "$bash_config_dir/platform"/*.sh "$bash_config_dir/modules"/*.sh
+    chmod +x "$config_dir"/*.sh "$config_dir/platform"/*.sh "$config_dir/modules"/*.sh
 
     print_status "Configuration files setup complete" 1 1
 }
 
 # Change default shell if needed
 change_shell() {
-    if [[ "$SHELL_CHOICE" == "zsh" ]]; then
-        # shellcheck disable=SC2155
-        local zsh_path=$(command -v zsh)
+    local current_shell
+    current_shell=$(basename "$SHELL")
+    
+    if [[ "$SHELL_CHOICE" == "$current_shell" ]] && [ $FORCE -eq 0 ]; then
+        print_info "$SHELL_CHOICE is already your default shell" 2
+        return 0
+    fi
 
-        if [[ "$SHELL" != "$zsh_path" ]] || [ $FORCE -eq 1 ]; then
-            print_status "Setting up ZSH as default shell..." 1
-            if grep -q "$zsh_path" /etc/shells; then
-                print_status "Changing default shell to ZSH..." 1
-                sudo chsh -s "$zsh_path" "$USER"
-            else
-                print_warning "ZSH not found in /etc/shells. To change your default shell, run:"
-                echo "   sudo sh -c \"echo $zsh_path >> /etc/shells\" && chsh -s $zsh_path"
-            fi
-        else
-            print_info "ZSH is already your default shell" 2
-        fi
-    elif [[ "$SHELL_CHOICE" == "bash" ]]; then
-        # shellcheck disable=SC2155
-        local bash_path=$(command -v bash)
+    local shell_path
+    shell_path=$(command -v "$SHELL_CHOICE")
+    
+    if [[ -z "$shell_path" ]]; then
+        print_error "Could not find $SHELL_CHOICE executable"
+        return 1
+    fi
 
-        if [[ "$SHELL" != "$bash_path" ]] || [ $FORCE -eq 1 ]; then
-            print_status "Setting up BASH as default shell..." 1
-            if grep -q "$bash_path" /etc/shells; then
-                print_status "Changing default shell to Bash..." 1
-                sudo chsh -s "$bash_path" "$USER"
-            else
-                print_warning "Bash not found in /etc/shells. To change your default shell, run:"
-                echo "   sudo sh -c \"echo $bash_path >> /etc/shells\" && chsh -s $bash_path"
-            fi
+    print_status "Setting up $SHELL_CHOICE as default shell..." 1
+    
+    if grep -q "$shell_path" /etc/shells; then
+        print_status "Changing default shell to $SHELL_CHOICE..." 1
+        if sudo chsh -s "$shell_path" "$USER"; then
+            print_status "Default shell changed successfully. You'll need to log out and back in for it to take effect." 1
         else
-            print_info "Bash is already your default shell" 2
+            print_warning "Failed to change default shell. You can change it manually with: chsh -s $shell_path"
         fi
+    else
+        print_warning "$SHELL_CHOICE not found in /etc/shells. To change your default shell, run:"
+        echo "   sudo sh -c \"echo $shell_path >> /etc/shells\" && chsh -s $shell_path"
     fi
 }
 
 # Generate local config file for machine-specific settings
 create_local_config() {
-    if [[ "$SHELL_CHOICE" == "bash" ]]; then
-        local local_config="$HOME/.bash_local"
-    else
-        local local_config="$HOME/.zsh_local"
-    fi
+    local local_config="$HOME/.${SHELL_CHOICE}_local"
 
-    # if the file exist, do not remove it, even forced. Do not use << if [[ ! -f "$local_config" ]] || [ $FORCE -eq 1 ]; then >>
+    # Don't overwrite existing local config, even with force
     if [[ ! -f "$local_config" ]]; then
         print_status "Creating local config file at $local_config" 1
         cat > "$local_config" << EOF
@@ -635,15 +752,19 @@ print_final_instructions() {
         echo -e "- ${YELLOW}System packages${NC} (vim, git, curl, etc.)"
         [ -d "$HOME/.cargo" ] && echo -e "- ${YELLOW}Rust and cargo tools${NC} (fd-find, ripgrep)"
         echo -e "- ${YELLOW}Shell configurations${NC} (dotfiles, aliases, functions)"
+        echo -e "- ${YELLOW}jq and yq${NC} (latest versions)"
     fi
 
     echo -e "\nNext steps:"
     echo -e "1. Restart your terminal or run: source ~/.${SHELL_CHOICE}rc"
     echo -e "2. Customize your local config at: ~/.${SHELL_CHOICE}_local"
 
-    if [[ "$SHELL_CHOICE" != "${SHELL##*/}" ]]; then
+    if [[ "$SHELL_CHOICE" != "$(basename "$SHELL")" ]]; then
         echo -e "3. Your default shell has been changed. Log out and log back in for it to take effect."
     fi
+    
+    echo -e "\n${BLUE}For more information, visit: https://github.com/adamspd/shell-config${NC}"
+    echo -e "${BLUE}Quick install: curl --proto '=https' --tlsv1.2 -sSf https://shell-config.adamspierredavid.com | bash -s -- -fvv${NC}"
 }
 
 # Main installation process
@@ -655,10 +776,10 @@ main() {
     select_shell
 
     # Run installation steps
-    install_dependencies
-    install_yq_jq
-    install_rust_tools
-    setup_dotfiles
+    install_dependencies || { print_error "Dependencies installation failed"; exit 1; }
+    install_yq_jq || { print_error "jq/yq installation failed"; exit 1; }
+    install_rust_tools || { print_error "Rust tools installation failed"; exit 1; }
+    setup_dotfiles || { print_error "Dotfiles setup failed"; exit 1; }
     change_shell
     create_local_config
 
