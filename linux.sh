@@ -63,11 +63,11 @@ fi
 #   -------------------------------
 
 # Safer rm alternatives
-if command -v trash-put &> /dev/null; then
-    alias rm='trash-put'                            # Use trash-cli if installed
-elif command -v gio &> /dev/null; then
-    alias rm='gio trash'                            # Use gio trash if available
-fi
+#if command -v trash-put &> /dev/null; then
+#    alias rm='trash-put'                            # Use trash-cli if installed
+#elif command -v gio &> /dev/null; then
+#    alias rm='gio trash'                            # Use gio trash if available
+#fi
 
 # File listing with extra information
 alias dirsize='du -sch .[!.]* * | sort -h'          # Directory sizes including hidden
