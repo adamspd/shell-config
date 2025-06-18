@@ -42,6 +42,7 @@ alias ls='ls -p --color=auto'                     # Basic colored list
 alias la='ls -A --color=auto'                     # Show hidden files
 alias l='ls -CF --color=auto'                     # Column format
 alias ll='ls -alpGFh --color=auto'                # Long detail format
+alias lsc='ls_sort'                               # Show all by type
 
 ### Tree-like Listings - for better navigation ###
 # Recursive directory listing in tree format
