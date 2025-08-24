@@ -61,8 +61,8 @@ alias lm='la | more'                              # Paged listing
 alias cp='cp -iv'                                 # Interactive & verbose copy
 alias mv='mv -iv'                                 # Interactive & verbose move
 alias mkdir='mkdir -pv'                           # Create dirs with parents
-alias md='mkdir -pv'                              # Shorthand mkdir
-alias rd='rmdir'                                  # Remove empty dirs
+# alias md='mkdir -pv'                              # Shorthand mkdir
+# alias rd='rmdir'                                  # Remove empty dirs
 alias dp='rm -rf'                                 # DELETE PERMANENT - USE WITH CAUTION!
 
 ### Disk Usage - know your limits ###
@@ -73,7 +73,7 @@ alias totalsize='df -h /'                         # Total fs usage
 alias dud='du -d 1 -h'                            # Directory size 1 level deep
 
 ### File Permissions - control your shit ###
-alias chmod='chmod -cv'                           # Verbose permission changes
+# alias chmod='chmod -cv'                           # Verbose permission changes
 
 ### File Creation - test files when you need 'em ###
 alias make1mb='if [[ "$OSTYPE" == "darwin"* ]]; then mkfile 1m ./1MB.dat; else dd if=/dev/zero of=./1MB.dat bs=1024 count=1024; fi'
