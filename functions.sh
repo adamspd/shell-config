@@ -111,7 +111,7 @@ function showa {
 # ---------------------------------
 
 # Create directory and cd into it
-function mkcd {
+function mcd {
     mkdir -pv "$1" && cd "$1" || return
 }
 
