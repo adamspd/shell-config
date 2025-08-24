@@ -48,8 +48,8 @@ alias hideFiles='defaults write com.apple.finder AppleShowAllFiles NO; killall F
 #   -------------------------------
 
 # Safer trash than rm
-trash () { command mv "$@" ~/.Trash ; }             # Move to trash instead of delete
-alias rm='trash'                                    # Override rm with trash
+# trash () { command mv "$@" ~/.Trash ; }             # Move to trash instead of delete
+# alias rm='trash'                                    # Override rm with trash
 
 # Quick Look file without opening
 ql () { qlmanage -p "$*" >& /dev/null; }            # Quick Look preview
